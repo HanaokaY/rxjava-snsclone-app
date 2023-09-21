@@ -2,11 +2,16 @@
   <div id="app">
     <button @click="fetchData">Fetch Data</button>
     <div v-if="message">{{ message }}</div>
+    <RegisterForm />
   </div>
 </template>
 
 <script>
+import RegisterForm from './components/RegisterForm.vue';
 export default {
+   components: {
+    RegisterForm
+  },
   data() {
     return {
       message: null,
