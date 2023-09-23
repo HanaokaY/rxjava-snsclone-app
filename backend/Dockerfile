@@ -1,13 +1,7 @@
-# ビルドステージ
-FROM gradle:7.2-jdk17-alpine AS build
+# ビルドと実行を同一ステージで行う
+FROM gradle:7.2-jdk17-alpine
 WORKDIR /app
-COPY . .
+ADD . /app
 RUN gradle clean build
-# ビルド成果物があるかどうかを確認
-RUN find /app -type f
-
-# 実行ステージ
-FROM openjdk:17
-WORKDIR /app
-COPY --from=build /app/build/libs/*.jar app.jar
+RUN mv /app/app/build/libs/app-0.1.0.jar /app/app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

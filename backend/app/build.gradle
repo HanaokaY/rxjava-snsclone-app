@@ -8,11 +8,13 @@
 
 plugins {
     id 'application'
+    id 'com.github.johnrengelman.shadow' version '7.0.0' // shadowJar プラグインを追加
 }
 
 application {
     mainClass = 'backend.App'
 }
+
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
@@ -26,7 +28,9 @@ dependencies {
     implementation 'com.google.guava:guava:31.1-jre'
     implementation 'io.vertx:vertx-core:4.1.5'
     implementation 'io.vertx:vertx-web:4.2.3'
+    implementation 'io.vertx:vertx-jdbc-client:4.1.5'
     implementation 'io.reactivex.rxjava3:rxjava:3.1.0'
+    implementation 'mysql:mysql-connector-java:8.0.26'
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -34,4 +38,17 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'backend.App'
+    }
+}
+
+// shadowJar 設定を追加
+shadowJar {
+    archiveBaseName.set('app')
+    archiveClassifier.set('')
+    archiveVersion.set('0.1.0')
 }

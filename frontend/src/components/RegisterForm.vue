@@ -27,9 +27,31 @@ export default {
         };
     },
     methods: {
-        register() {
-        this.message = `ようこそ、${this.username}さん！`;
-        }
+        async register() {
+            const user = {
+                username: this.username,
+                password: this.password,
+            };
+
+            try {
+                const response = await fetch("http://localhost:8080/register", {
+                    method: 'POST',
+                    headers: {
+                    'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(user),
+                });
+
+                if (response.ok) {
+                    this.message = `ようこそ、${this.username}さん！登録が完了しました。`;
+                } else {
+                    const responseData = await response.json();
+                    this.message = responseData.message || 'エラーが発生しました。';
+                }
+            } catch (error) {
+                this.message = 'サーバーエラーが発生しました。';
+            }
+        },
     }
 };
 </script>
