@@ -9,7 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.core.json.JsonArray;
-
+import io.vertx.config.ConfigRetriever;
 
 public class App extends AbstractVerticle {
 
@@ -17,32 +17,50 @@ public class App extends AbstractVerticle {
 
     @Override
     public void start() {
-        JsonObject config = new JsonObject()
-                .put("url", "jdbc:mysql://db:3306/mydatabase")
-                .put("driver_class", "com.mysql.cj.jdbc.Driver")
-                .put("user", "user")
-                .put("password", "password");
+        ConfigRetriever retriever = ConfigRetriever.create(vertx);
 
-        jdbc = JDBCClient.createShared(vertx, config);
+        retriever.getConfig(ar -> {
+            if (ar.failed()) {
+                System.err.println("Failed to retrieve the configuration.");
+                return;
+            }
 
-        Router router = Router.router(vertx);
-        router.route().handler(BodyHandler.create());
+            JsonObject config = ar.result();
 
-        // CORS settings
-        router.route().handler(CorsHandler.create("*")
-        .allowedMethod(io.vertx.core.http.HttpMethod.GET)
-        .allowedHeader("Access-Control-Allow-Method")
-        .allowedHeader("Access-Control-Allow-Origin")
-        .allowedHeader("Access-Control-Allow-Credentials")
-        .allowedHeader("Content-Type"));
+            JsonObject dbConfig = new JsonObject()
+                    .put("url", config.getString("DATABASE_URL"))
+                    .put("driver_class", config.getString("DATABASE_DRIVER_CLASS"))
+                    .put("user", config.getString("DATABASE_USER"))
+                    .put("password", config.getString("DATABASE_PASSWORD"));
 
-        router.get("/test").handler(this::handleTestEndpoint);
-        router.post("/register").handler(this::handleRegister);
+            jdbc = JDBCClient.createShared(vertx, dbConfig);
 
-        vertx.createHttpServer().requestHandler(router).listen(8080);
+            Router router = Router.router(vertx);
+            router.route().handler(BodyHandler.create());
+
+            // CORS settings
+            router.route().handler(CorsHandler.create("*")
+                    .allowedMethod(io.vertx.core.http.HttpMethod.GET)
+                    .allowedHeader("Access-Control-Allow-Method")
+                    .allowedHeader("Access-Control-Allow-Origin")
+                    .allowedHeader("Access-Control-Allow-Credentials")
+                    .allowedHeader("Content-Type"));
+
+            router.get("/test").handler(this::handleTestEndpoint);
+            router.get("/hello").handler(this::handleHelloEndpoint);
+            router.post("/register").handler(this::handleRegister);
+
+            vertx.createHttpServer().requestHandler(router).listen(8080);
+        });
     }
 
     private void handleTestEndpoint(RoutingContext context) {
+        context.response()
+                .putHeader("content-type", "text/plain")
+                .end("Hello Test");
+    }
+
+    private void handleHelloEndpoint(RoutingContext context) {
         context.response()
                 .putHeader("content-type", "text/plain")
                 .end("Hello World!");
@@ -52,15 +70,21 @@ public class App extends AbstractVerticle {
         JsonObject requestBody = context.getBodyAsJson();
         String username = requestBody.getString("username");
         String password = requestBody.getString("password");
+        System.out.println(username + "と" + password);
 
-        jdbc.updateWithParams(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                new JsonArray().add(username).add(password),
+        jdbc.query(
+                "select * from cities ;",
                 ar -> {
                     if (ar.succeeded()) {
-                        context.response().setStatusCode(201).end("User registered successfully.");
+                        // Convert the results to JSON and send as a response
+                        JsonArray resultsArray = new JsonArray();
+                        ar.result().getRows().forEach(resultsArray::add);
+                        context.response().setStatusCode(200).end(resultsArray.encodePrettily());
                     } else {
-                        context.response().setStatusCode(500).end("Error registering user.");
+                        // Log the actual error for debugging
+                        System.err.println("Database query error: " + ar.cause().getMessage());
+                        ar.cause().printStackTrace();
+                        context.response().setStatusCode(500).end("Error querying the database.");
                     }
                 });
     }
