@@ -9,7 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 import io.vertx.core.json.JsonArray;
-import io.vertx.config.ConfigRetriever;
+import backend.DBConfig;
 
 public class App extends AbstractVerticle {
 
@@ -17,41 +17,32 @@ public class App extends AbstractVerticle {
 
     @Override
     public void start() {
-        ConfigRetriever retriever = ConfigRetriever.create(vertx);
+        DBConfig dbConfig = new DBConfig("./.env");
 
-        retriever.getConfig(ar -> {
-            if (ar.failed()) {
-                System.err.println("Failed to retrieve the configuration.");
-                return;
-            }
+        JsonObject config = new JsonObject()
+                .put("url", dbConfig.getDBURL())
+                .put("driver_class", "org.postgresql.Driver")
+                .put("user", dbConfig.getDBUser())
+                .put("password", dbConfig.getDBPassword());
 
-            JsonObject config = ar.result();
+        jdbc = JDBCClient.createShared(vertx, config);
 
-            JsonObject dbConfig = new JsonObject()
-                    .put("url", config.getString("DATABASE_URL"))
-                    .put("driver_class", config.getString("DATABASE_DRIVER_CLASS"))
-                    .put("user", config.getString("DATABASE_USER"))
-                    .put("password", config.getString("DATABASE_PASSWORD"));
+        Router router = Router.router(vertx);
+        router.route().handler(BodyHandler.create());
 
-            jdbc = JDBCClient.createShared(vertx, dbConfig);
+        // CORS settings
+        router.route().handler(CorsHandler.create("*")
+                .allowedMethod(io.vertx.core.http.HttpMethod.GET)
+                .allowedHeader("Access-Control-Allow-Method")
+                .allowedHeader("Access-Control-Allow-Origin")
+                .allowedHeader("Access-Control-Allow-Credentials")
+                .allowedHeader("Content-Type"));
 
-            Router router = Router.router(vertx);
-            router.route().handler(BodyHandler.create());
+        router.get("/test").handler(this::handleTestEndpoint);
+        router.get("/hello").handler(this::handleHelloEndpoint);
+        router.post("/register").handler(this::handleRegister);
 
-            // CORS settings
-            router.route().handler(CorsHandler.create("*")
-                    .allowedMethod(io.vertx.core.http.HttpMethod.GET)
-                    .allowedHeader("Access-Control-Allow-Method")
-                    .allowedHeader("Access-Control-Allow-Origin")
-                    .allowedHeader("Access-Control-Allow-Credentials")
-                    .allowedHeader("Content-Type"));
-
-            router.get("/test").handler(this::handleTestEndpoint);
-            router.get("/hello").handler(this::handleHelloEndpoint);
-            router.post("/register").handler(this::handleRegister);
-
-            vertx.createHttpServer().requestHandler(router).listen(8080);
-        });
+        vertx.createHttpServer().requestHandler(router).listen(8080);
     }
 
     private void handleTestEndpoint(RoutingContext context) {
@@ -71,7 +62,7 @@ public class App extends AbstractVerticle {
         String username = requestBody.getString("username");
         String password = requestBody.getString("password");
         System.out.println(username + "と" + password);
-
+    
         jdbc.query(
                 "select * from cities ;",
                 ar -> {
@@ -88,6 +79,7 @@ public class App extends AbstractVerticle {
                     }
                 });
     }
+    
 
     public static void main(String[] args) {
         Vertx vertx = Vertx.vertx();
