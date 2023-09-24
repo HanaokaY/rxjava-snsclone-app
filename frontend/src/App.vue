@@ -1,43 +1,41 @@
 <template>
   <div id="app">
-    <button @click="fetchData">Fetch Data</button>
-    <div v-if="message">{{ message }}</div>
-    <RegisterForm />
+    <transition name="fade">
+      <RegisterForm v-if="!isRegistered" @registration-success="onRegistrationSuccess"/>
+    </transition>
+    <transition name="fade">
+      <MemberPage v-if="isRegistered"/>
+    </transition>
   </div>
 </template>
 
 <script>
 import RegisterForm from './components/RegisterForm.vue';
+import MemberPage from './components/MemberPage.vue';
+
 export default {
-   components: {
-    RegisterForm
+  components: {
+    RegisterForm,
+    MemberPage,
   },
   data() {
     return {
-      message: null,
+      isRegistered: false,
     };
   },
   methods: {
-    async fetchData() {
-      try {
-        const response = await fetch("http://localhost:8080/test");
-        const data = await response.text();
-        this.message = data;
-      } catch (error) {
-        console.error("There was a problem fetching data:", error);
-      }
-    },
-  },
+    onRegistrationSuccess() {
+      this.isRegistered = true;
+    }
+  }
 };
 </script>
-
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+/* フェードエフェクト */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 1s;
+}
+.fade-enter, .fade-leave-to /* .fade-leave-active in <2.1.8 */ {
+  opacity: 0;
 }
 </style>

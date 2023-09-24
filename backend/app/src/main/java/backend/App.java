@@ -41,6 +41,7 @@ public class App extends AbstractVerticle {
         router.get("/test").handler(this::handleTestEndpoint);
         router.get("/hello").handler(this::handleHelloEndpoint);
         router.post("/register").handler(this::handleRegister);
+        router.post("/tweet").handler(this::handleTweetSave);
 
         vertx.createHttpServer().requestHandler(router).listen(8080);
     }
@@ -60,26 +61,52 @@ public class App extends AbstractVerticle {
     private void handleRegister(RoutingContext context) {
         JsonObject requestBody = context.getBodyAsJson();
         String username = requestBody.getString("username");
-        String password = requestBody.getString("password");
-        System.out.println(username + "と" + password);
+        String password = requestBody.getString("password"); // とりあえずハッシュ化はしてない
     
-        jdbc.query(
-                "select * from cities ;",
-                ar -> {
-                    if (ar.succeeded()) {
-                        // Convert the results to JSON and send as a response
-                        JsonArray resultsArray = new JsonArray();
-                        ar.result().getRows().forEach(resultsArray::add);
-                        context.response().setStatusCode(200).end(resultsArray.encodePrettily());
-                    } else {
-                        // Log the actual error for debugging
-                        System.err.println("Database query error: " + ar.cause().getMessage());
-                        ar.cause().printStackTrace();
-                        context.response().setStatusCode(500).end("Error querying the database.");
-                    }
-                });
+        if (username == null || password == null) {
+            context.response().setStatusCode(400).end("Username or Password cannot be empty.");
+            return;
+        }
+    
+        String insertQuery = "INSERT INTO users (username, password) VALUES (?, ?);";
+    
+        JsonArray params = new JsonArray().add(username).add(password);
+    
+        jdbc.updateWithParams(insertQuery, params, ar -> {
+            if (ar.succeeded()) {
+                context.response().setStatusCode(201).end("User registered successfully.");
+            } else {
+                System.err.println("Database insert error: " + ar.cause().getMessage());
+                ar.cause().printStackTrace();
+                context.response().setStatusCode(500).end("Error registering user.");
+            }
+        });
     }
     
+    private void handleTweetSave(RoutingContext context) {
+        JsonObject requestBody = context.getBodyAsJson();
+        Integer userId = requestBody.getInteger("userId");
+        String content = requestBody.getString("content");
+    
+        if (userId == null || content == null) {
+            context.response().setStatusCode(400).end("UserId or text cannot be empty.");
+            return;
+        }
+    
+        String insertQuery = "INSERT INTO tweets (user_id, content) VALUES (?, ?);";
+    
+        JsonArray params = new JsonArray().add(userId).add(content);
+    
+        jdbc.updateWithParams(insertQuery, params, ar -> {
+            if (ar.succeeded()) {
+                context.response().setStatusCode(201).end("User registered successfully.");
+            } else {
+                System.err.println("Database insert error: " + ar.cause().getMessage());
+                ar.cause().printStackTrace();
+                context.response().setStatusCode(500).end("Error registering user.");
+            }
+        });
+    }
 
     public static void main(String[] args) {
         Vertx vertx = Vertx.vertx();
